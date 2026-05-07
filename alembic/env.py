@@ -1,12 +1,22 @@
 from __future__ import annotations
 
-import os
 from logging.config import fileConfig
 
 from alembic import context
 from sqlalchemy import engine_from_config, pool
 
+from app.core.config import settings
 from app.db.base import Base
+
+# Import all models so that Base.metadata is populated
+import app.models.user  # noqa: F401
+import app.models.team  # noqa: F401
+import app.models.project  # noqa: F401
+import app.models.artifact  # noqa: F401
+import app.models.skill  # noqa: F401
+import app.models.capability  # noqa: F401
+import app.models.mentor_activity  # noqa: F401
+import app.models.vectors  # noqa: F401
 
 config = context.config
 
@@ -17,10 +27,7 @@ target_metadata = Base.metadata
 
 
 def _get_url() -> str:
-    url = os.getenv("DATABASE_URL")
-    if not url:
-        raise RuntimeError("DATABASE_URL is not set")
-    return url.replace("+asyncpg", "")
+    return settings.database_url.replace("+asyncpg", "")
 
 
 def run_migrations_offline() -> None:

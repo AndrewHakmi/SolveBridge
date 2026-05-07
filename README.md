@@ -2,28 +2,23 @@
 
 ## Quickstart
 
-1) Start Postgres with pgvector
+1) Create `.env` from `.env.example`
 
-```bash
-docker compose up -d
-```
-
-2) Create `.env` from `.env.example`
-
-3) Install dependencies
+2) Install dependencies
 
 ```bash
 python -m pip install -r requirements.txt
 ```
 
-4) Run migrations
+3) Run migrations
 
 ```bash
 alembic upgrade head
 ```
 
-5) Run API
+4) Run API
 
 ```bash
 uvicorn app.main:app --reload
 ```
+

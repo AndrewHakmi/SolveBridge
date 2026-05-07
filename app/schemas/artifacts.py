@@ -27,3 +27,10 @@ class ArtifactOut(BaseModel):
     metadata: dict
     git_url: str | None
 
+
+class ArtifactUpdate(BaseModel):
+    reusability_index: float | None = None
+    git_url: str | None = None
+    metadata: dict | None = None
+    mentorship_seal: bool | None = None
+

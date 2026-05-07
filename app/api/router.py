@@ -8,10 +8,14 @@ from app.api.routes.integrations_git import router as integrations_git_router
 from app.api.routes.mentor_activity import router as mentor_activity_router
 from app.api.routes.projects import router as projects_router
 from app.api.routes.scoring import router as scoring_router
+from app.api.routes.users import router as users_router
+from app.api.routes.teams import router as teams_router
 
 
 api_router = APIRouter()
 
+api_router.include_router(users_router, prefix="/users", tags=["users"])
+api_router.include_router(teams_router, prefix="/teams", tags=["teams"])
 api_router.include_router(projects_router, prefix="/projects", tags=["projects"])
 api_router.include_router(artifacts_router, prefix="/artifacts", tags=["artifacts"])
 api_router.include_router(capability_router, prefix="/capability", tags=["capability"])

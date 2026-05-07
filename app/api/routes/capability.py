@@ -1,6 +1,9 @@
 from __future__ import annotations
 
-from fastapi import APIRouter
+import uuid
+from typing import Optional
+
+from fastapi import APIRouter, Query
 from sqlalchemy import select
 from sqlalchemy.dialects.postgresql import insert
 
@@ -11,6 +14,32 @@ from app.schemas.capability import CapabilityOut, CapabilityUpsert
 
 
 router = APIRouter()
+
+
+def _to_out(row: CapabilityEdge) -> CapabilityOut:
+    return CapabilityOut(
+        id=row.id,
+        entity_type=row.entity_type,
+        entity_id=row.entity_id,
+        skill_id=row.skill_id,
+        proficiency_level=row.proficiency_level,
+        evidence_artifact_id=row.evidence_artifact_id,
+    )
+
+
+@router.get("", response_model=list[CapabilityOut])
+async def list_capabilities(
+    session: SessionDep,
+    entity_type: Optional[str] = Query(default=None),
+    entity_id: Optional[uuid.UUID] = Query(default=None),
+):
+    stmt = select(CapabilityEdge).order_by(CapabilityEdge.last_updated.desc())
+    if entity_type is not None:
+        stmt = stmt.where(CapabilityEdge.entity_type == entity_type)
+    if entity_id is not None:
+        stmt = stmt.where(CapabilityEdge.entity_id == entity_id)
+    rows = (await session.execute(stmt)).scalars().all()
+    return [_to_out(r) for r in rows]
 
 
 @router.put("", response_model=CapabilityOut)
@@ -41,12 +70,5 @@ async def upsert_capability(payload: CapabilityUpsert, session: SessionDep):
     )
     row = (await session.execute(stmt)).scalar_one()
     await session.commit()
-    return CapabilityOut(
-        id=row.id,
-        entity_type=row.entity_type,
-        entity_id=row.entity_id,
-        skill_id=row.skill_id,
-        proficiency_level=row.proficiency_level,
-        evidence_artifact_id=row.evidence_artifact_id,
-    )
+    return _to_out(row)
 

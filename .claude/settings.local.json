@@ -1,0 +1,19 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(docker rm:*)",
+      "Bash(alembic upgrade:*)",
+      "Bash(pip install:*)",
+      "Bash(docker exec:*)",
+      "Bash(python -c \"import psycopg2; print\\('ok'\\)\")",
+      "Bash(python -c \"from app.core.config import settings; print\\(settings.database_url\\)\")",
+      "Bash(python -c \"import psycopg2; c=psycopg2.connect\\('postgresql://postgres:postgres@localhost:5432/solvebridge'\\); cur=c.cursor\\(\\); cur.execute\\('SELECT current_database\\(\\), version\\(\\)'\\); print\\(cur.fetchone\\(\\)\\); c.close\\(\\)\")",
+      "Bash(python -c \"import psycopg2; c=psycopg2.connect\\('postgresql://postgres:postgres@localhost:5433/solvebridge'\\); cur=c.cursor\\(\\); cur.execute\\('SELECT current_database\\(\\), version\\(\\)'\\); print\\(cur.fetchone\\(\\)\\); c.close\\(\\)\")",
+      "Bash(uvicorn app.main:app --reload --port 8000)",
+      "Bash(npm run:*)",
+      "Bash(curl -s http://localhost:8000/health)",
+      "Bash(curl -s http://localhost:8000/api/projects)",
+      "Bash(curl -s http://localhost:8000/api/artifacts)"
+    ]
+  }
+}
