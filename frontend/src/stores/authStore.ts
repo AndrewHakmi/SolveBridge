@@ -1,11 +1,19 @@
 import { create } from 'zustand'
 
-export type UserRole = 'employee' | 'manager' | 'admin'
+export type UserRole = 'client' | 'student' | 'mentor' | 'admin'
 
 export type AuthUser = {
   id: string
+  email: string
   name: string
   role: UserRole
+}
+
+export function labelForRole(role: UserRole) {
+  if (role === 'client') return 'Клиент'
+  if (role === 'student') return 'Студент'
+  if (role === 'mentor') return 'Ментор'
+  return 'Партнёр'
 }
 
 type AuthState = {
@@ -35,4 +43,3 @@ export const useAuthStore = create<AuthState>((set) => ({
     set({ user: null })
   },
 }))
-

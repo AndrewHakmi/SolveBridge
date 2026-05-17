@@ -1,7 +1,7 @@
 import { Page, PageHeader } from '@/components/layout/Page'
 import { Button } from '@/components/ui/Button'
 import { Card, CardContent, CardHeader } from '@/components/ui/Card'
-import { useAuthStore } from '@/stores/authStore'
+import { labelForRole, useAuthStore } from '@/stores/authStore'
 
 export default function Profile() {
   const user = useAuthStore((s) => s.user)
@@ -22,7 +22,8 @@ export default function Profile() {
           {user ? (
             <div className="space-y-2">
               <div className="text-sm">Имя: {user.name}</div>
-              <div className="text-sm">Роль: {user.role}</div>
+              <div className="text-sm">Email: {user.email}</div>
+              <div className="text-sm">Роль: {labelForRole(user.role)}</div>
               <div className="text-xs text-[#9FB0D0]">id: {user.id}</div>
               <Button variant="danger" type="button" onClick={() => logout()}>
                 Выйти
@@ -36,4 +37,3 @@ export default function Profile() {
     </Page>
   )
 }
-

@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from alembic import op
 import sqlalchemy as sa
-from pgvector.sqlalchemy import Vector
 from sqlalchemy.dialects import postgresql
 
 revision = "initial_schema"
@@ -12,8 +11,6 @@ depends_on = None
 
 
 def upgrade() -> None:
-    op.execute("CREATE EXTENSION IF NOT EXISTS vector")
-
     op.create_table(
         "users",
         sa.Column("id", sa.Uuid(), primary_key=True, nullable=False),
@@ -114,24 +111,8 @@ def upgrade() -> None:
     op.create_index("ix_mentor_activity_team_id", "mentor_activity_logs", ["team_id"])
     op.create_index("ix_mentor_activity_project_id", "mentor_activity_logs", ["project_id"])
 
-    op.create_table(
-        "project_vectors",
-        sa.Column("project_id", sa.Uuid(), sa.ForeignKey("projects.id"), primary_key=True, nullable=False),
-        sa.Column("embedding", sa.Text(), nullable=True),
-        sa.Column("embedding_v", Vector(1536), nullable=True),
-        sa.Column("updated_at", sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=False),
-    )
-    op.create_index(
-        "ix_project_vectors_embedding_v",
-        "project_vectors",
-        ["embedding_v"],
-        postgresql_using="ivfflat",
-    )
-
 
 def downgrade() -> None:
-    op.drop_index("ix_project_vectors_embedding_v", table_name="project_vectors")
-    op.drop_table("project_vectors")
     op.drop_index("ix_mentor_activity_project_id", table_name="mentor_activity_logs")
     op.drop_index("ix_mentor_activity_team_id", table_name="mentor_activity_logs")
     op.drop_index("ix_mentor_activity_mentor_id", table_name="mentor_activity_logs")

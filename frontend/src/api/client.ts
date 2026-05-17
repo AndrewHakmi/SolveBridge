@@ -292,3 +292,150 @@ export function ingestGitWebhook(input: {
     },
   );
 }
+
+// ── Plans ─────────────────────────────────────────────────────────────────────
+
+export type ServicePlanOut = {
+  code: string;
+  name: string;
+  monthly_price_rub: number;
+  sla_minutes: number;
+  features: Record<string, unknown>;
+};
+
+export function listPlans(): Promise<ServicePlanOut[]> {
+  return apiFetch<ServicePlanOut[]>('/api/plans');
+}
+
+// ── Organizations ─────────────────────────────────────────────────────────────
+
+export type OrganizationOut = {
+  id: string;
+  type: string;
+  name: string;
+  region: string | null;
+  metadata: Record<string, unknown>;
+};
+
+export function listOrganizations(params?: { type?: string }): Promise<OrganizationOut[]> {
+  const qs = params?.type ? `?type=${encodeURIComponent(params.type)}` : '';
+  return apiFetch<OrganizationOut[]>(`/api/organizations${qs}`);
+}
+
+export function createOrganization(input: {
+  type: string;
+  name: string;
+  region?: string | null;
+  metadata?: Record<string, unknown>;
+}): Promise<OrganizationOut> {
+  return apiFetch<OrganizationOut>('/api/organizations', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  });
+}
+
+// ── Tasks ─────────────────────────────────────────────────────────────────────
+
+export type TaskOut = {
+  id: string;
+  organization_id: string;
+  title: string;
+  description: string;
+  category: string;
+  budget_amount_rub: number | null;
+  status: string;
+  required_skills: unknown[];
+};
+
+export function listTasks(params?: { status?: string }): Promise<TaskOut[]> {
+  const qs = params?.status ? `?status=${encodeURIComponent(params.status)}` : '';
+  return apiFetch<TaskOut[]>(`/api/tasks${qs}`);
+}
+
+export function createTask(input: {
+  organization_id: string;
+  title: string;
+  description: string;
+  category?: string;
+  budget_amount_rub?: number | null;
+  required_skills?: unknown[];
+}): Promise<TaskOut> {
+  return apiFetch<TaskOut>('/api/tasks', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  });
+}
+
+export function getTask(taskId: string): Promise<TaskOut> {
+  return apiFetch<TaskOut>(`/api/tasks/${taskId}`);
+}
+
+export type TaskApplicationOut = {
+  id: string;
+  task_id: string;
+  applicant_id: string;
+  proposed_amount_rub: number | null;
+  message: string | null;
+  status: string;
+};
+
+export function applyToTask(taskId: string, input: {
+  applicant_id: string;
+  proposed_amount_rub?: number | null;
+  message?: string | null;
+}): Promise<TaskApplicationOut> {
+  return apiFetch<TaskApplicationOut>(`/api/tasks/${taskId}/apply`, {
+    method: 'POST',
+    body: JSON.stringify(input),
+  });
+}
+
+export function listTaskApplications(taskId: string): Promise<TaskApplicationOut[]> {
+  return apiFetch<TaskApplicationOut[]>(`/api/tasks/${taskId}/applications`);
+}
+
+export type TaskAssignmentOut = {
+  id: string;
+  task_id: string;
+  executor_id: string;
+  mentor_id: string | null;
+  status: string;
+};
+
+export function assignTask(taskId: string, input: {
+  executor_id: string;
+  mentor_id?: string | null;
+}): Promise<TaskAssignmentOut> {
+  return apiFetch<TaskAssignmentOut>(`/api/tasks/${taskId}/assign`, {
+    method: 'POST',
+    body: JSON.stringify(input),
+  });
+}
+
+export function getTaskAssignment(taskId: string): Promise<TaskAssignmentOut | null> {
+  return apiFetch<TaskAssignmentOut | null>(`/api/tasks/${taskId}/assignment`);
+}
+
+export type DisputeOut = {
+  id: string;
+  task_id: string;
+  opened_by_id: string;
+  reason: string;
+  status: string;
+  sla_deadline: string;
+};
+
+export function openDispute(taskId: string, input: {
+  opened_by_id: string;
+  reason: string;
+  sla_minutes?: number;
+}): Promise<DisputeOut> {
+  return apiFetch<DisputeOut>(`/api/tasks/${taskId}/disputes`, {
+    method: 'POST',
+    body: JSON.stringify(input),
+  });
+}
+
+export function listDisputes(taskId: string): Promise<DisputeOut[]> {
+  return apiFetch<DisputeOut[]>(`/api/tasks/${taskId}/disputes`);
+}

@@ -10,10 +10,15 @@ import KnowledgeEdit from '@/pages/KnowledgeEdit'
 import LearningDetail from '@/pages/LearningDetail'
 import LearningList from '@/pages/LearningList'
 import Login from '@/pages/Login'
+import More from '@/pages/More'
 import NotFound from '@/pages/NotFound'
 import Profile from '@/pages/Profile'
+import PartnerDashboard from '@/pages/PartnerDashboard'
 import TalentDirectory from '@/pages/TalentDirectory'
 import TalentProfile from '@/pages/TalentProfile'
+import TaskDetail from '@/pages/TaskDetail'
+import TaskNew from '@/pages/TaskNew'
+import TasksList from '@/pages/TasksList'
 import Workspace from '@/pages/Workspace'
 
 export default function App() {
@@ -30,6 +35,9 @@ export default function App() {
           }
         >
           <Route path="/" element={<Workspace />} />
+          <Route path="/tasks" element={<TasksList />} />
+          <Route path="/tasks/new" element={<TaskNew />} />
+          <Route path="/tasks/:id" element={<TaskDetail />} />
           <Route path="/knowledge" element={<KnowledgeList />} />
           <Route path="/knowledge/new" element={<KnowledgeNew />} />
           <Route path="/knowledge/:id" element={<KnowledgeDetail />} />
@@ -39,6 +47,8 @@ export default function App() {
           <Route path="/learning" element={<LearningList />} />
           <Route path="/learning/:id" element={<LearningDetail />} />
           <Route path="/profile" element={<Profile />} />
+          <Route path="/more" element={<More />} />
+          <Route path="/partner" element={<PartnerDashboard />} />
           <Route path="/admin" element={<Admin />} />
         </Route>
         <Route path="*" element={<NotFound />} />

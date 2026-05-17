@@ -1,5 +1,7 @@
 import {
   BookOpen,
+  Briefcase,
+  MoreHorizontal,
   GraduationCap,
   LayoutGrid,
   Settings,
@@ -16,20 +18,19 @@ type Item = {
   to: string
   label: string
   icon: ReactNode
-  requireAdmin?: boolean
+  visibleFor?: Array<'client' | 'student' | 'mentor' | 'admin'>
 }
 
 const items: Item[] = [
-  { to: '/', label: 'Workspace', icon: <LayoutGrid className="h-4 w-4" /> },
-  { to: '/knowledge', label: 'База знаний', icon: <BookOpen className="h-4 w-4" /> },
-  { to: '/talent', label: 'Таланты', icon: <Users className="h-4 w-4" /> },
-  { to: '/learning', label: 'Обучение', icon: <GraduationCap className="h-4 w-4" /> },
+  { to: '/', label: 'Главная', icon: <LayoutGrid className="h-4 w-4" /> },
+  { to: '/tasks', label: 'Задачи', icon: <Briefcase className="h-4 w-4" /> },
   { to: '/profile', label: 'Профиль', icon: <Settings className="h-4 w-4" /> },
-  { to: '/admin', label: 'Админ', icon: <Shield className="h-4 w-4" />, requireAdmin: true },
+  { to: '/more', label: 'Ещё', icon: <MoreHorizontal className="h-4 w-4" /> },
 ]
 
 export function Sidebar() {
   const user = useAuthStore((s) => s.user)
+  const role = user?.role
 
   return (
     <aside className="hidden w-[260px] shrink-0 md:block">
@@ -39,7 +40,11 @@ export function Sidebar() {
         </div>
         <nav className="p-2">
           {items
-            .filter((i) => (i.requireAdmin ? user?.role === 'admin' : true))
+            .filter((i) => {
+              if (!i.visibleFor) return true
+              if (!role) return false
+              return i.visibleFor.includes(role)
+            })
             .map((i) => (
               <NavLink
                 key={i.to}
