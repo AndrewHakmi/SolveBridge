@@ -8,6 +8,8 @@ from sqlalchemy import select
 from sqlalchemy.dialects.postgresql import insert
 
 from app.api.deps import SessionDep
+from app.models.anti_disintermediation import AntiDisintermediationRule
+from app.models.compliance import ComplianceProfile
 from app.models.dispute import Dispute
 from app.models.task import Task, TaskApplication, TaskAssignment
 from app.schemas.disputes import DisputeCreate, DisputeOut
@@ -18,10 +20,13 @@ from app.schemas.tasks import (
     TaskAssignmentOut,
     TaskCreate,
     TaskOut,
+    TaskStatusUpdate,
 )
 
 
 router = APIRouter()
+
+_NPD_OK = {"verified", "not_required"}
 
 
 @router.post("", response_model=TaskOut)
@@ -152,6 +157,40 @@ async def assign_task(task_id: uuid.UUID, payload: TaskAssignIn, session: Sessio
     if task.status not in {"open", "assigned"}:
         raise HTTPException(status_code=409, detail="Task cannot be assigned in current state")
 
+    compliance = (
+        await session.execute(select(ComplianceProfile).where(ComplianceProfile.user_id == payload.executor_id))
+    ).scalar_one_or_none()
+    if not compliance or not compliance.pdn_consent:
+        raise HTTPException(status_code=409, detail="Исполнитель не дал согласие на обработку персональных данных (152‑ФЗ)")
+    if compliance.npd_status not in _NPD_OK:
+        raise HTTPException(status_code=409, detail="У исполнителя не подтверждён статус самозанятого (422‑ФЗ)")
+
+    rule = (
+        await session.execute(
+            select(AntiDisintermediationRule).where(
+                AntiDisintermediationRule.company_org_id == task.organization_id,
+                AntiDisintermediationRule.executor_id == payload.executor_id,
+            )
+        )
+    ).scalar_one_or_none()
+    if not rule:
+        rule = AntiDisintermediationRule(
+            company_org_id=task.organization_id,
+            executor_id=payload.executor_id,
+            required_task_count=3,
+            completed_task_count=0,
+            is_active=True,
+            mentor_required=True,
+        )
+        session.add(rule)
+
+    if rule.is_active and rule.mentor_required and rule.completed_task_count < rule.required_task_count:
+        if payload.mentor_id is None:
+            raise HTTPException(
+                status_code=409,
+                detail="Для первых 3 задач пары компания–исполнитель требуется ментор (защита от обхода платформы)",
+            )
+
     existing = (await session.execute(select(TaskAssignment).where(TaskAssignment.task_id == task_id))).scalar_one_or_none()
     if existing:
         existing.executor_id = payload.executor_id
@@ -176,6 +215,48 @@ async def assign_task(task_id: uuid.UUID, payload: TaskAssignIn, session: Sessio
         executor_id=assignment.executor_id,
         mentor_id=assignment.mentor_id,
         status=assignment.status,
+    )
+
+
+@router.post("/{task_id}/status", response_model=TaskOut)
+async def update_task_status(task_id: uuid.UUID, payload: TaskStatusUpdate, session: SessionDep):
+    task = (await session.execute(select(Task).where(Task.id == task_id))).scalar_one_or_none()
+    if not task:
+        raise HTTPException(status_code=404, detail="Task not found")
+
+    allowed = {"open", "assigned", "disputed", "completed", "canceled"}
+    if payload.status not in allowed:
+        raise HTTPException(status_code=400, detail="Unsupported status")
+
+    task.status = payload.status
+
+    if payload.status == "completed":
+        assignment = (await session.execute(select(TaskAssignment).where(TaskAssignment.task_id == task_id))).scalar_one_or_none()
+        if assignment:
+            rule = (
+                await session.execute(
+                    select(AntiDisintermediationRule).where(
+                        AntiDisintermediationRule.company_org_id == task.organization_id,
+                        AntiDisintermediationRule.executor_id == assignment.executor_id,
+                    )
+                )
+            ).scalar_one_or_none()
+            if rule and rule.is_active:
+                rule.completed_task_count = int(rule.completed_task_count) + 1
+                if rule.completed_task_count >= rule.required_task_count:
+                    rule.is_active = False
+
+    await session.commit()
+    await session.refresh(task)
+    return TaskOut(
+        id=task.id,
+        organization_id=task.organization_id,
+        title=task.title,
+        description=task.description,
+        category=task.category,
+        budget_amount_rub=task.budget_amount_rub,
+        status=task.status,
+        required_skills=task.required_skills_json,
     )
 
 
@@ -238,4 +319,3 @@ async def list_disputes(task_id: uuid.UUID, session: SessionDep):
         )
         for d in rows
     ]
-

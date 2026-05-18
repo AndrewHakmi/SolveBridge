@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useParams } from 'react-router-dom'
+import { Link, useParams } from 'react-router-dom'
 import { AlertTriangle, CheckCircle2, Gavel, UserPlus } from 'lucide-react'
 
 import {
@@ -63,6 +63,30 @@ export default function TaskDetail() {
   const applicantId = user?.id || ''
 
   const selectedExecutor = useMemo(() => apps[0]?.applicant_id || '', [apps])
+
+  const assignmentHint = useMemo(() => {
+    if (!err) return null
+    const text = err.toLowerCase()
+    if (text.includes('152')) {
+      return {
+        title: 'Нужно согласие 152‑ФЗ',
+        body: 'Исполнитель должен открыть «Профиль» → «Документы и согласия» и включить согласие.',
+      }
+    }
+    if (text.includes('422') || text.includes('самозанят')) {
+      return {
+        title: 'Нужен статус самозанятого',
+        body: 'Исполнитель должен открыть «Профиль» → «Документы и согласия» и указать статус НПД.',
+      }
+    }
+    if (text.includes('первые 3') || text.includes('ментор')) {
+      return {
+        title: 'Нужен ментор на первые задачи',
+        body: 'Для первых 3 задач пары компания–исполнитель нужно указать mentor_id при назначении.',
+      }
+    }
+    return null
+  }, [err])
 
   function displayUser(userId: string) {
     const u = userIndex[userId]
@@ -268,7 +292,7 @@ export default function TaskDetail() {
                       <div className="text-xs text-[#9FB0D0]">Назначить исполнителя</div>
                       <div className="mt-2 grid grid-cols-1 gap-2 md:grid-cols-3">
                         <div className="md:col-span-2">
-                          <div className="mb-1 text-xs text-[#9FB0D0]">ID ментора (опционально)</div>
+                          <div className="mb-1 text-xs text-[#9FB0D0]">ID ментора (иногда обязательно)</div>
                           <Input
                             value={mentorId}
                             onChange={(e) => setMentorId(e.target.value)}
@@ -281,6 +305,17 @@ export default function TaskDetail() {
                           </Button>
                         </div>
                       </div>
+                      {assignmentHint ? (
+                        <div className="mt-3 space-y-2">
+                          <Alert tone="warning">
+                            <div className="font-medium text-sm">{assignmentHint.title}</div>
+                            <div className="mt-1 text-sm">{assignmentHint.body}</div>
+                          </Alert>
+                          <div className="text-xs text-[#9FB0D0]">
+                            Если вы студент: открой <Link className="text-[#6C8CFF] hover:underline" to="/profile">Профиль</Link> и заполни это за 10 секунд.
+                          </div>
+                        </div>
+                      ) : null}
                     </form>
 
                     {assignment ? (

@@ -18,5 +18,5 @@ class AntiDisintermediationRule(Base, UUIDPrimaryKeyMixin):
     required_task_count: Mapped[int] = mapped_column(Integer, nullable=False, default=3)
     completed_task_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    mentor_required: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     created_at: Mapped[object] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
-

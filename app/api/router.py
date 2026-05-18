@@ -4,6 +4,7 @@ from fastapi import APIRouter
 
 from app.api.routes.artifacts import router as artifacts_router
 from app.api.routes.capability import router as capability_router
+from app.api.routes.compliance import router as compliance_router
 from app.api.routes.integrations_git import router as integrations_git_router
 from app.api.routes.mentor_activity import router as mentor_activity_router
 from app.api.routes.organizations import router as organizations_router
@@ -29,6 +30,7 @@ api_router.include_router(capability_router, prefix="/capability", tags=["capabi
 api_router.include_router(mentor_activity_router, prefix="/mentor-activity", tags=["mentor-activity"])
 api_router.include_router(scoring_router, prefix="/scoring", tags=["scoring"])
 api_router.include_router(integrations_git_router, prefix="/integrations/git", tags=["integrations"])
+api_router.include_router(compliance_router, prefix="/compliance", tags=["compliance"])
 api_router.include_router(plans_router, prefix="/plans", tags=["plans"])
 api_router.include_router(organizations_router, prefix="/organizations", tags=["organizations"])
 api_router.include_router(tasks_router, prefix="/tasks", tags=["tasks"])

@@ -52,3 +52,6 @@ class TaskAssignmentOut(BaseModel):
     mentor_id: uuid.UUID | None
     status: str
 
+
+class TaskStatusUpdate(BaseModel):
+    status: str

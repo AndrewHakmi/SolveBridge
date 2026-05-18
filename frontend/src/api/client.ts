@@ -439,3 +439,30 @@ export function openDispute(taskId: string, input: {
 export function listDisputes(taskId: string): Promise<DisputeOut[]> {
   return apiFetch<DisputeOut[]>(`/api/tasks/${taskId}/disputes`);
 }
+
+// ── Compliance ────────────────────────────────────────────────────────────────
+
+export type ComplianceProfileOut = {
+  user_id: string;
+  npd_status: string;
+  npd_verified_at: string | null;
+  pdn_consent: boolean;
+  pdn_consent_at: string | null;
+  metadata: Record<string, unknown>;
+} | null;
+
+export function getComplianceProfile(userId: string): Promise<ComplianceProfileOut> {
+  return apiFetch<ComplianceProfileOut>(`/api/compliance/profiles/${userId}`);
+}
+
+export function upsertComplianceProfile(input: {
+  user_id: string;
+  npd_status: string;
+  pdn_consent: boolean;
+  metadata?: Record<string, unknown>;
+}): Promise<Exclude<ComplianceProfileOut, null>> {
+  return apiFetch<Exclude<ComplianceProfileOut, null>>('/api/compliance/profiles', {
+    method: 'PUT',
+    body: JSON.stringify(input),
+  });
+}
