@@ -1,0 +1,13 @@
+__pycache__/
+*.pyc
+*.pyo
+.env
+.venv/
+venv/
+dist/
+node_modules/
+frontend/dist/
+frontend/nodejs_*.deb
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
