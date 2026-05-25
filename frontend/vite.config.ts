@@ -9,13 +9,20 @@ export default defineConfig({
     sourcemap: 'hidden',
   },
   server: {
+    host: '0.0.0.0',
+    hmr: {
+      clientPort: 80,
+    },
+    watch: {
+      usePolling: true,
+    },
     proxy: {
       '/api': {
-        target: 'http://localhost:8000',
+        target: process.env.BACKEND_URL || 'http://localhost:8000',
         changeOrigin: true,
       },
       '/health': {
-        target: 'http://localhost:8000',
+        target: process.env.BACKEND_URL || 'http://localhost:8000',
         changeOrigin: true,
       },
     },
