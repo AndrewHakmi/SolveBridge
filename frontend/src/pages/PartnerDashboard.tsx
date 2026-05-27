@@ -1,8 +1,10 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Building2, LineChart, Plus, ShieldCheck } from 'lucide-react'
+import { hashPassword } from '@/utils/crypto'
+import { Building2, Eye, EyeOff, KeyRound, LineChart, Plus, ShieldCheck, Trash2, X } from 'lucide-react'
 
 import {
   createOrganization,
+  deleteOrganization,
   listOrganizations,
   listPlans,
   listTasks,
@@ -18,6 +20,160 @@ import { Card, CardContent, CardHeader } from '@/components/ui/Card'
 import { Input } from '@/components/ui/Input'
 import { useAuthStore } from '@/stores/authStore'
 import { getErrorMessage } from '@/utils/errors'
+import {
+  getAllPartnerCreds,
+  removePartnerCred,
+  setPartnerCred,
+} from '@/utils/partnerCreds'
+
+function typeLabel(t: string) {
+  if (t === 'university') return 'Вуз'
+  if (t === 'infrastructure') return 'Технопарк'
+  if (t === 'government') return 'Гос. орган'
+  return t
+}
+
+function CredForm({ org, onClose }: { org: OrganizationOut; onClose: () => void }) {
+  const existing = getAllPartnerCreds()
+  const existingEntry = Object.entries(existing).find(([, v]) => v.orgId === org.id)
+  const hasCreds = !!existingEntry
+
+  const [mode, setMode] = useState<'password' | 'full'>(hasCreds ? 'password' : 'full')
+  const [credEmail, setCredEmail] = useState(existingEntry?.[0] ?? '')
+  const [credPassword, setCredPassword] = useState('')
+  const [showPwd, setShowPwd] = useState(false)
+  const [saved, setSaved] = useState(false)
+
+  async function save() {
+    if (mode === 'password') {
+      if (!credPassword.trim()) return
+      const passwordHash = await hashPassword(credPassword)
+      setPartnerCred(existingEntry![0], { ...existingEntry![1], passwordHash })
+    } else {
+      if (!credEmail.trim() || !credPassword.trim()) return
+      if (existingEntry && existingEntry[0] !== credEmail.trim()) {
+        removePartnerCred(existingEntry[0])
+      }
+      const passwordHash = await hashPassword(credPassword)
+      setPartnerCred(credEmail.trim().toLowerCase(), {
+        passwordHash,
+        orgId: org.id,
+        orgName: org.name,
+        orgType: org.type,
+      })
+    }
+    setSaved(true)
+    setTimeout(onClose, 800)
+  }
+
+  function revoke() {
+    if (existingEntry) removePartnerCred(existingEntry[0])
+    onClose()
+  }
+
+  return (
+    <div className="mt-2 rounded-xl bg-[#0B1220] p-4 ring-1 ring-[#6C8CFF]/30 space-y-3">
+      <div className="flex items-center justify-between">
+        <span className="text-xs font-semibold uppercase tracking-wider text-[#6C8CFF]">
+          {hasCreds ? 'Сменить пароль' : 'Выдать доступ'}: {org.name}
+        </span>
+        <button type="button" onClick={onClose} className="text-[#9FB0D0] hover:text-white">
+          <X className="h-4 w-4" />
+        </button>
+      </div>
+
+      {hasCreds && (
+        <div className="flex gap-2 text-xs">
+          <button
+            type="button"
+            onClick={() => setMode('password')}
+            className={`rounded-lg px-2.5 py-1 ${mode === 'password' ? 'bg-[#6C8CFF]/20 text-[#6C8CFF]' : 'text-[#9FB0D0] hover:text-white'}`}
+          >
+            Сменить пароль
+          </button>
+          <button
+            type="button"
+            onClick={() => setMode('full')}
+            className={`rounded-lg px-2.5 py-1 ${mode === 'full' ? 'bg-[#6C8CFF]/20 text-[#6C8CFF]' : 'text-[#9FB0D0] hover:text-white'}`}
+          >
+            Изменить логин и пароль
+          </button>
+        </div>
+      )}
+
+      {mode === 'password' && hasCreds ? (
+        <>
+          <div className="rounded-lg bg-[#0F1830] px-3 py-2 text-xs text-[#9FB0D0]">
+            Логин: <span className="text-white">{existingEntry![0]}</span>
+          </div>
+          <div>
+            <div className="mb-1 text-xs text-[#9FB0D0]">Новый пароль</div>
+            <div className="relative">
+              <Input
+                type={showPwd ? 'text' : 'password'}
+                value={credPassword}
+                onChange={(e) => setCredPassword(e.target.value)}
+                placeholder="Введите новый пароль"
+                autoComplete="new-password"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPwd((v) => !v)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-[#9FB0D0] hover:text-white"
+              >
+                {showPwd ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </button>
+            </div>
+          </div>
+        </>
+      ) : (
+        <>
+          <div>
+            <div className="mb-1 text-xs text-[#9FB0D0]">Логин (email)</div>
+            <Input
+              value={credEmail}
+              onChange={(e) => setCredEmail(e.target.value)}
+              placeholder="partner@university.ru"
+              autoComplete="off"
+            />
+          </div>
+          <div>
+            <div className="mb-1 text-xs text-[#9FB0D0]">Пароль</div>
+            <div className="relative">
+              <Input
+                type={showPwd ? 'text' : 'password'}
+                value={credPassword}
+                onChange={(e) => setCredPassword(e.target.value)}
+                placeholder="Придумайте пароль"
+                autoComplete="new-password"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPwd((v) => !v)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-[#9FB0D0] hover:text-white"
+              >
+                {showPwd ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </button>
+            </div>
+          </div>
+        </>
+      )}
+
+      {saved && <Alert tone="success">Сохранено!</Alert>}
+
+      <div className="flex gap-2">
+        <Button variant="primary" type="button" onClick={() => void save()} className="flex-1">
+          {mode === 'password' && hasCreds ? 'Сменить пароль' : 'Сохранить доступ'}
+        </Button>
+        {hasCreds && (
+          <Button variant="danger" type="button" onClick={revoke}>
+            Отозвать
+          </Button>
+        )}
+      </div>
+    </div>
+  )
+}
 
 function StatCard(props: { title: string; value: string; subtitle?: string }) {
   return (
@@ -52,6 +208,10 @@ export default function PartnerDashboard() {
   const [newOrgName, setNewOrgName] = useState('')
   const [newOrgType, setNewOrgType] = useState<'university' | 'infrastructure' | 'government'>('infrastructure')
 
+  const [openCredOrgId, setOpenCredOrgId] = useState<string | null>(null)
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
+  const [deletingId, setDeletingId] = useState<string | null>(null)
+
   const partnerValue = useMemo(
     () => [
       { k: 'Прозрачность', v: 'Сводная статистика по задачам и верификациям' },
@@ -85,6 +245,26 @@ export default function PartnerDashboard() {
     }
   }
 
+  async function doDelete(orgId: string) {
+    setDeletingId(orgId)
+    try {
+      await deleteOrganization(orgId)
+      const creds = getAllPartnerCreds()
+      const credEmail = Object.entries(creds).find(([, v]) => v.orgId === orgId)?.[0]
+      if (credEmail) removePartnerCred(credEmail)
+      setOrgs((prev) => prev.filter((o) => o.id !== orgId))
+    } catch (e: unknown) {
+      setErr(getErrorMessage(e, 'Не удалось удалить партнёра'))
+    } finally {
+      setDeletingId(null)
+      setConfirmDeleteId(null)
+    }
+  }
+
+  function hasCred(orgId: string) {
+    return Object.values(getAllPartnerCreds()).some((c) => c.orgId === orgId)
+  }
+
   useEffect(() => {
     load()
   }, [])
@@ -92,7 +272,7 @@ export default function PartnerDashboard() {
   if (!canView) {
     return (
       <Page>
-        <PageHeader title="Панель партнёра" subtitle="Для технопарков и Минцифры: метрики, партнёры, уровни сервиса." />
+        <PageHeader title="Панель управления партнёрами" subtitle="Для технопарков и Минцифры: метрики, партнёры, уровни сервиса." />
         <Alert tone="danger">Доступно для роли «Партнёр/Админ». Переключи роль на экране входа.</Alert>
       </Page>
     )
@@ -101,8 +281,7 @@ export default function PartnerDashboard() {
   return (
     <Page>
       <PageHeader
-        title="Панель партнёра"
-        subtitle="Витрина для технопарков и Минцифры: как платформа помогает трудоустройству и качеству исполнения."
+        title="Панель управления партнёрами"
         right={
           <div className="flex items-center gap-2">
             <Badge tone="accent">MVP</Badge>
@@ -204,7 +383,7 @@ export default function PartnerDashboard() {
                   <select
                     className="w-full rounded-xl bg-[#111A2E] px-3 py-2 text-sm ring-1 ring-[#1E2A44] outline-none"
                     value={newOrgType}
-                    onChange={(e) => setNewOrgType(e.target.value as any)}
+                    onChange={(e) => setNewOrgType(e.target.value as 'infrastructure' | 'government' | 'university')}
                   >
                     <option value="infrastructure">Технопарк/инфраструктура</option>
                     <option value="government">Минцифры/гос.орган</option>
@@ -221,10 +400,69 @@ export default function PartnerDashboard() {
                   <div className="text-sm text-[#9FB0D0]">Партнёры не добавлены</div>
                 ) : (
                   <div className="space-y-2">
-                    {orgs.slice(0, 10).map((o) => (
-                      <div key={o.id} className="rounded-xl bg-[#0F1830] p-3 ring-1 ring-[#1E2A44]">
-                        <div className="text-sm font-medium truncate">{o.name}</div>
-                        <div className="mt-1 text-xs text-[#9FB0D0]">{o.type}</div>
+                    {orgs.map((o) => (
+                      <div key={o.id}>
+                        <div className="rounded-xl bg-[#0F1830] p-3 ring-1 ring-[#1E2A44]">
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-1.5">
+                                <span className="truncate text-sm font-medium">{o.name}</span>
+                                {hasCred(o.id) && (
+                                  <Badge tone="success">Доступ</Badge>
+                                )}
+                              </div>
+                              <div className="mt-0.5 text-xs text-[#9FB0D0]">{typeLabel(o.type)}</div>
+                            </div>
+                            <div className="flex shrink-0 items-center gap-1">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setConfirmDeleteId(null)
+                                  setOpenCredOrgId(openCredOrgId === o.id ? null : o.id)
+                                }}
+                                className="rounded-lg bg-[#6C8CFF]/10 p-1.5 text-[#6C8CFF] hover:bg-[#6C8CFF]/20"
+                                title={hasCred(o.id) ? 'Сменить пароль' : 'Выдать доступ'}
+                              >
+                                <KeyRound className="h-3.5 w-3.5" />
+                              </button>
+                              {confirmDeleteId === o.id ? (
+                                <div className="flex items-center gap-1">
+                                  <span className="text-xs text-[#FF5A6A]">Удалить?</span>
+                                  <button
+                                    type="button"
+                                    onClick={() => doDelete(o.id)}
+                                    disabled={deletingId === o.id}
+                                    className="rounded-lg bg-[#FF5A6A]/20 px-2 py-1 text-xs text-[#FF5A6A] hover:bg-[#FF5A6A]/30 disabled:opacity-50"
+                                  >
+                                    {deletingId === o.id ? '…' : 'Да'}
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => setConfirmDeleteId(null)}
+                                    className="rounded-lg px-1 py-1 text-xs text-[#9FB0D0] hover:text-white"
+                                  >
+                                    Нет
+                                  </button>
+                                </div>
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setOpenCredOrgId(null)
+                                    setConfirmDeleteId(o.id)
+                                  }}
+                                  className="rounded-lg p-1.5 text-[#9FB0D0] hover:text-[#FF5A6A]"
+                                  title="Удалить партнёра"
+                                >
+                                  <Trash2 className="h-3.5 w-3.5" />
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                        {openCredOrgId === o.id && (
+                          <CredForm org={o} onClose={() => setOpenCredOrgId(null)} />
+                        )}
                       </div>
                     ))}
                   </div>
@@ -237,4 +475,3 @@ export default function PartnerDashboard() {
     </Page>
   )
 }
-
