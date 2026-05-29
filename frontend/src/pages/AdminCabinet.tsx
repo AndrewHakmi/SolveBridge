@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { hashPassword } from '@/utils/crypto'
 import {
   Building2,
   GraduationCap,
@@ -16,6 +17,7 @@ import {
 
 import {
   createOrganization,
+  deleteOrganization,
   listOrganizations,
   listTasks,
   listUsers,
@@ -60,23 +62,34 @@ function CredForm({
 }) {
   const existing = getAllPartnerCreds()
   const existingEntry = Object.entries(existing).find(([, v]) => v.orgId === org.id)
+  const hasCreds = !!existingEntry
 
+  // When creds exist, default to password-change mode (email locked)
+  const [mode, setMode] = useState<'password' | 'full'>(hasCreds ? 'password' : 'full')
   const [credEmail, setCredEmail] = useState(existingEntry?.[0] ?? '')
-  const [credPassword, setCredPassword] = useState(existingEntry?.[1]?.password ?? '')
+  const [credPassword, setCredPassword] = useState('')
   const [showPwd, setShowPwd] = useState(false)
   const [saved, setSaved] = useState(false)
 
-  function save() {
-    if (!credEmail.trim() || !credPassword.trim()) return
-    if (existingEntry && existingEntry[0] !== credEmail.trim()) {
-      removePartnerCred(existingEntry[0])
+  async function save() {
+    if (mode === 'password') {
+      if (!credPassword.trim()) return
+      const email = existingEntry![0]
+      const passwordHash = await hashPassword(credPassword)
+      setPartnerCred(email, { ...existingEntry![1], passwordHash })
+    } else {
+      if (!credEmail.trim() || !credPassword.trim()) return
+      if (existingEntry && existingEntry[0] !== credEmail.trim()) {
+        removePartnerCred(existingEntry[0])
+      }
+      const passwordHash = await hashPassword(credPassword)
+      setPartnerCred(credEmail.trim().toLowerCase(), {
+        passwordHash,
+        orgId: org.id,
+        orgName: org.name,
+        orgType: org.type,
+      })
     }
-    setPartnerCred(credEmail.trim().toLowerCase(), {
-      password: credPassword,
-      orgId: org.id,
-      orgName: org.name,
-      orgType: org.type,
-    })
     setSaved(true)
     setTimeout(onClose, 800)
   }
@@ -89,49 +102,98 @@ function CredForm({
   return (
     <div className="mt-2 rounded-xl bg-[#0B1220] p-4 ring-1 ring-[#6C8CFF]/30 space-y-3">
       <div className="flex items-center justify-between">
-        <span className="text-xs font-semibold uppercase tracking-wider text-[#6C8CFF]">Доступ для: {org.name}</span>
+        <span className="text-xs font-semibold uppercase tracking-wider text-[#6C8CFF]">
+          {hasCreds ? 'Сменить пароль' : 'Выдать доступ'}: {org.name}
+        </span>
         <button type="button" onClick={onClose} className="text-[#9FB0D0] hover:text-white">
           <X className="h-4 w-4" />
         </button>
       </div>
 
-      <div>
-        <div className="mb-1 text-xs text-[#9FB0D0]">Логин (email)</div>
-        <Input
-          value={credEmail}
-          onChange={(e) => setCredEmail(e.target.value)}
-          placeholder="partner@university.ru"
-          autoComplete="off"
-        />
-      </div>
-
-      <div>
-        <div className="mb-1 text-xs text-[#9FB0D0]">Пароль</div>
-        <div className="relative">
-          <Input
-            type={showPwd ? 'text' : 'password'}
-            value={credPassword}
-            onChange={(e) => setCredPassword(e.target.value)}
-            placeholder="Придумайте пароль"
-            autoComplete="new-password"
-          />
+      {hasCreds && (
+        <div className="flex gap-2 text-xs">
           <button
             type="button"
-            onClick={() => setShowPwd((v) => !v)}
-            className="absolute right-3 top-1/2 -translate-y-1/2 text-[#9FB0D0] hover:text-white"
+            onClick={() => setMode('password')}
+            className={`rounded-lg px-2.5 py-1 ${mode === 'password' ? 'bg-[#6C8CFF]/20 text-[#6C8CFF]' : 'text-[#9FB0D0] hover:text-white'}`}
           >
-            {showPwd ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+            Сменить пароль
+          </button>
+          <button
+            type="button"
+            onClick={() => setMode('full')}
+            className={`rounded-lg px-2.5 py-1 ${mode === 'full' ? 'bg-[#6C8CFF]/20 text-[#6C8CFF]' : 'text-[#9FB0D0] hover:text-white'}`}
+          >
+            Изменить логин и пароль
           </button>
         </div>
-      </div>
+      )}
+
+      {mode === 'password' && hasCreds ? (
+        <>
+          <div className="rounded-lg bg-[#0F1830] px-3 py-2 text-xs text-[#9FB0D0]">
+            Логин: <span className="text-white">{existingEntry![0]}</span>
+          </div>
+          <div>
+            <div className="mb-1 text-xs text-[#9FB0D0]">Новый пароль</div>
+            <div className="relative">
+              <Input
+                type={showPwd ? 'text' : 'password'}
+                value={credPassword}
+                onChange={(e) => setCredPassword(e.target.value)}
+                placeholder="Введите новый пароль"
+                autoComplete="new-password"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPwd((v) => !v)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-[#9FB0D0] hover:text-white"
+              >
+                {showPwd ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </button>
+            </div>
+          </div>
+        </>
+      ) : (
+        <>
+          <div>
+            <div className="mb-1 text-xs text-[#9FB0D0]">Логин (email)</div>
+            <Input
+              value={credEmail}
+              onChange={(e) => setCredEmail(e.target.value)}
+              placeholder="partner@university.ru"
+              autoComplete="off"
+            />
+          </div>
+          <div>
+            <div className="mb-1 text-xs text-[#9FB0D0]">Пароль</div>
+            <div className="relative">
+              <Input
+                type={showPwd ? 'text' : 'password'}
+                value={credPassword}
+                onChange={(e) => setCredPassword(e.target.value)}
+                placeholder="Придумайте пароль"
+                autoComplete="new-password"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPwd((v) => !v)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-[#9FB0D0] hover:text-white"
+              >
+                {showPwd ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </button>
+            </div>
+          </div>
+        </>
+      )}
 
       {saved && <Alert tone="success">Сохранено!</Alert>}
 
       <div className="flex gap-2">
-        <Button variant="primary" type="button" onClick={save} className="flex-1">
-          Сохранить доступ
+        <Button variant="primary" type="button" onClick={() => void save()} className="flex-1">
+          {mode === 'password' && hasCreds ? 'Сменить пароль' : 'Сохранить доступ'}
         </Button>
-        {existingEntry && (
+        {hasCreds && (
           <Button variant="danger" type="button" onClick={revoke}>
             Отозвать
           </Button>
@@ -155,6 +217,8 @@ export default function AdminCabinet() {
   const [newType, setNewType] = useState<'university' | 'infrastructure' | 'government'>('university')
   const [busy, setBusy] = useState(false)
   const [openCredOrgId, setOpenCredOrgId] = useState<string | null>(null)
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
+  const [deletingId, setDeletingId] = useState<string | null>(null)
 
   const statusKey = 'sb:org_statuses'
 
@@ -167,6 +231,27 @@ export default function AdminCabinet() {
     s[id] = status
     localStorage.setItem(statusKey, JSON.stringify(s))
     setOrgs((prev) => prev.map((o) => o.id === id ? { ...o, status } : o))
+  }
+
+  async function doDelete(orgId: string) {
+    setDeletingId(orgId)
+    try {
+      await deleteOrganization(orgId)
+      // Remove credentials for this org
+      const creds = getAllPartnerCreds()
+      const credEmail = Object.entries(creds).find(([, v]) => v.orgId === orgId)?.[0]
+      if (credEmail) removePartnerCred(credEmail)
+      // Remove from local statuses
+      const s = loadStatuses()
+      delete s[orgId]
+      localStorage.setItem(statusKey, JSON.stringify(s))
+      setOrgs((prev) => prev.filter((o) => o.id !== orgId))
+    } catch (e: unknown) {
+      setErr(getErrorMessage(e, 'Не удалось удалить партнёра'))
+    } finally {
+      setDeletingId(null)
+      setConfirmDeleteId(null)
+    }
   }
 
   function hasCred(orgId: string) {
@@ -269,9 +354,12 @@ export default function AdminCabinet() {
                           {statusBadge(o.status)}
                           <button
                             type="button"
-                            onClick={() => setOpenCredOrgId(openCredOrgId === o.id ? null : o.id)}
+                            onClick={() => {
+                              setConfirmDeleteId(null)
+                              setOpenCredOrgId(openCredOrgId === o.id ? null : o.id)
+                            }}
                             className="rounded-lg bg-[#6C8CFF]/10 p-1.5 text-[#6C8CFF] hover:bg-[#6C8CFF]/20"
-                            title="Управление доступом"
+                            title={hasCred(o.id) ? 'Сменить пароль' : 'Выдать доступ'}
                           >
                             <KeyRound className="h-3.5 w-3.5" />
                           </button>
@@ -284,11 +372,34 @@ export default function AdminCabinet() {
                               Одобрить
                             </button>
                           )}
-                          {o.status !== 'rejected' && (
+                          {confirmDeleteId === o.id ? (
+                            <div className="flex items-center gap-1">
+                              <span className="text-xs text-[#FF5A6A]">Удалить?</span>
+                              <button
+                                type="button"
+                                onClick={() => doDelete(o.id)}
+                                disabled={deletingId === o.id}
+                                className="rounded-lg bg-[#FF5A6A]/20 px-2 py-1 text-xs text-[#FF5A6A] hover:bg-[#FF5A6A]/30 disabled:opacity-50"
+                              >
+                                {deletingId === o.id ? '…' : 'Да'}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setConfirmDeleteId(null)}
+                                className="rounded-lg px-2 py-1 text-xs text-[#9FB0D0] hover:text-white"
+                              >
+                                Нет
+                              </button>
+                            </div>
+                          ) : (
                             <button
                               type="button"
-                              onClick={() => saveStatus(o.id, 'rejected')}
+                              onClick={() => {
+                                setOpenCredOrgId(null)
+                                setConfirmDeleteId(o.id)
+                              }}
                               className="rounded-lg p-1 text-[#9FB0D0] hover:text-[#FF5A6A]"
+                              title="Удалить партнёра"
                             >
                               <Trash2 className="h-3.5 w-3.5" />
                             </button>

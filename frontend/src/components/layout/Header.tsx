@@ -2,6 +2,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { LogOut } from 'lucide-react'
 
 import { Button } from '@/components/ui/Button'
+import { Logo } from '@/components/ui/Logo'
 import { labelForRole, useAuthStore } from '@/stores/authStore'
 
 export function Header() {
@@ -21,10 +22,9 @@ export function Header() {
     <header className="sticky top-0 z-30 border-b border-[#1E2A44] bg-[#0B1220]/80 backdrop-blur">
       <div className="mx-auto flex h-14 max-w-[1320px] items-center justify-between gap-3 px-4">
         <Link to={user ? '/' : '/login'} className="flex items-center gap-2">
-          <div className="h-8 w-8 rounded-lg bg-[#6C8CFF]/20 ring-1 ring-[#6C8CFF]/30" />
+          <Logo size={32} />
           <div className="leading-tight">
-            <div className="text-sm font-semibold">Talent & Knowledge OS</div>
-            <div className="text-xs text-[#9FB0D0]">SolveBridge</div>
+            <div className="text-sm font-semibold tracking-wide">Проектория</div>
           </div>
         </Link>
 

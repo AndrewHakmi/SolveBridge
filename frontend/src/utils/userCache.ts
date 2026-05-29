@@ -1,10 +1,22 @@
 import type { AuthUser } from '@/stores/authStore'
 
 const KEY = 'sb:user_cache'
+const VERSION_KEY = 'sb:auth_version'
+const CURRENT_VERSION = '2'
 
-export type CachedUser = AuthUser & { password: string }
+// Clears old plain-text credential stores from before password hashing was introduced
+function migrateIfNeeded() {
+  if (localStorage.getItem(VERSION_KEY) !== CURRENT_VERSION) {
+    localStorage.removeItem(KEY)
+    localStorage.setItem(VERSION_KEY, CURRENT_VERSION)
+  }
+}
+
+// Stores user info (no password) for the user picker UI
+export type CachedUser = AuthUser
 
 export function getCachedUser(email: string): CachedUser | null {
+  migrateIfNeeded()
   try {
     const all = JSON.parse(localStorage.getItem(KEY) || '{}') as Record<string, CachedUser>
     return all[email.toLowerCase()] ?? null
@@ -13,7 +25,8 @@ export function getCachedUser(email: string): CachedUser | null {
   }
 }
 
-export function setCachedUser(user: CachedUser) {
+export function setCachedUser(user: AuthUser) {
+  migrateIfNeeded()
   try {
     const all = JSON.parse(localStorage.getItem(KEY) || '{}') as Record<string, CachedUser>
     all[user.email.toLowerCase()] = user
@@ -23,13 +36,8 @@ export function setCachedUser(user: CachedUser) {
   }
 }
 
-export function checkUserCred(email: string, password: string): CachedUser | null {
-  const user = getCachedUser(email)
-  if (!user || user.password !== password) return null
-  return user
-}
-
 export function getAllCachedUsers(): CachedUser[] {
+  migrateIfNeeded()
   try {
     const all = JSON.parse(localStorage.getItem(KEY) || '{}') as Record<string, CachedUser>
     return Object.values(all)

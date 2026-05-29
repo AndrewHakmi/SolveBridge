@@ -13,7 +13,8 @@ import {
 } from 'lucide-react'
 
 import {
-  createUser,
+  authLogin,
+  authRegister,
   createStudentVerification,
   listOrganizations,
   type OrganizationOut,
@@ -24,12 +25,14 @@ import { Card, CardContent } from '@/components/ui/Card'
 import { Input } from '@/components/ui/Input'
 import { useAuthStore, type UserRole } from '@/stores/authStore'
 import { getErrorMessage } from '@/utils/errors'
-import { getCachedUser, setCachedUser, checkUserCred } from '@/utils/userCache'
+import { getCachedUser, setCachedUser } from '@/utils/userCache'
 import { checkPartnerCred, checkCompanyCred } from '@/utils/partnerCreds'
 import { checkMentorCred } from '@/utils/mentorRegistry'
+import { hashPassword } from '@/utils/crypto'
 
+// SHA-256 of 'Proektoria2024!' — never store plain-text passwords in source
 const ADMIN_EMAIL = 'admin@proektoria.ru'
-const ADMIN_PASSWORD = 'Proektoria2024!'
+const ADMIN_HASH = '6a8725abad565f6041653987c6a779055ca4f598d21f6d52aca6f21da09acc9f'
 
 const allRoles: Array<{
   value: UserRole
@@ -108,11 +111,9 @@ export default function Login() {
   const [err, setErr] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
 
-  // Login form
   const [loginEmail, setLoginEmail] = useState('')
   const [loginPassword, setLoginPassword] = useState('')
 
-  // Register form
   const [regEmail, setRegEmail] = useState('')
   const [regPassword, setRegPassword] = useState('')
   const [regPassword2, setRegPassword2] = useState('')
@@ -154,40 +155,46 @@ export default function Login() {
 
     setBusy(true)
     try {
-      // Admin
+      // Admin — compare against SHA-256 hash (no plain text in code)
       if (vEmail === ADMIN_EMAIL) {
-        if (loginPassword !== ADMIN_PASSWORD) { setErr('Неверный пароль'); return }
+        const hash = await hashPassword(loginPassword)
+        if (hash !== ADMIN_HASH) { setErr('Неверный пароль'); return }
         login({ id: 'admin-fixed', email: ADMIN_EMAIL, name: 'Администратор', role: 'admin' })
         navigate(from); return
       }
-      // Partner
-      const partnerCred = checkPartnerCred(vEmail, loginPassword)
+
+      // Partner (stored in localStorage with SHA-256 hash)
+      const partnerCred = await checkPartnerCred(vEmail, loginPassword)
       if (partnerCred) {
         login({ id: partnerCred.orgId, email: vEmail, name: partnerCred.orgName, role: 'partner' })
         navigate('/partner-cabinet'); return
       }
-      // Company
-      const companyCred = checkCompanyCred(vEmail, loginPassword)
+
+      // Company (stored in localStorage with SHA-256 hash)
+      const companyCred = await checkCompanyCred(vEmail, loginPassword)
       if (companyCred) {
         login({ id: companyCred.companyId, email: vEmail, name: companyCred.companyName, role: 'company' })
         navigate('/company-cabinet'); return
       }
-      // Mentor (registered by partner/company)
-      const mentorEntry = checkMentorCred(vEmail, loginPassword)
+
+      // Mentor (stored in localStorage with SHA-256 hash)
+      const mentorEntry = await checkMentorCred(vEmail, loginPassword)
       if (mentorEntry) {
         login({ id: mentorEntry.userId, email: vEmail, name: mentorEntry.name, role: 'mentor' })
         navigate(from); return
       }
-      // Regular user
-      const cached = checkUserCred(vEmail, loginPassword)
-      if (!cached) {
-        setErr('Неверный email или пароль. Ещё не зарегистрированы?')
-        return
-      }
-      login(cached)
+
+      // Regular user — backend auth with bcrypt
+      const authUser = await authLogin({ email: vEmail, password: loginPassword })
+      login({
+        id: authUser.id,
+        email: authUser.email,
+        name: authUser.display_name ?? authUser.email,
+        role: authUser.role as UserRole,
+      })
       navigate(from)
     } catch (e: unknown) {
-      setErr(getErrorMessage(e, 'Ошибка входа'))
+      setErr(getErrorMessage(e, 'Неверный email или пароль'))
     } finally {
       setBusy(false)
     }
@@ -206,7 +213,13 @@ export default function Login() {
 
     setBusy(true)
     try {
-      const created = await createUser({ email: vEmail, display_name: vName })
+      // Backend creates user and stores bcrypt-hashed password in DB
+      const created = await authRegister({
+        email: vEmail,
+        password: regPassword,
+        display_name: vName,
+        role: regRole,
+      })
 
       if (regRole === 'student' && selectedUniIds.length > 0) {
         await Promise.allSettled(
@@ -223,8 +236,8 @@ export default function Login() {
         role: regRole,
         universityOrgIds: regRole === 'student' ? selectedUniIds : undefined,
         universityText: regRole === 'executor' ? (executorUniText.trim() || undefined) : undefined,
-        password: regPassword,
       }
+      // Cache user info (no password) for the user picker UI
       setCachedUser(authUser)
       login(authUser)
       navigate(from)

@@ -1,12 +1,14 @@
+import { hashPassword } from './crypto'
+
 export type PartnerCred = {
-  password: string
+  passwordHash: string
   orgId: string
   orgName: string
   orgType: string
 }
 
 export type CompanyCred = {
-  password: string
+  passwordHash: string
   companyId: string
   companyName: string
   addedByEmail: string
@@ -35,9 +37,11 @@ export function isPartnerEmail(email: string): boolean {
   return email in getAllPartnerCreds()
 }
 
-export function checkPartnerCred(email: string, password: string): PartnerCred | null {
+export async function checkPartnerCred(email: string, password: string): Promise<PartnerCred | null> {
   const cred = getAllPartnerCreds()[email]
-  if (!cred || cred.password !== password) return null
+  if (!cred || !cred.passwordHash) return null
+  const hash = await hashPassword(password)
+  if (hash !== cred.passwordHash) return null
   return cred
 }
 
@@ -62,9 +66,11 @@ export function isCompanyEmail(email: string): boolean {
   return email in getAllCompanyCreds()
 }
 
-export function checkCompanyCred(email: string, password: string): CompanyCred | null {
+export async function checkCompanyCred(email: string, password: string): Promise<CompanyCred | null> {
   const cred = getAllCompanyCreds()[email]
-  if (!cred || cred.password !== password) return null
+  if (!cred || !cred.passwordHash) return null
+  const hash = await hashPassword(password)
+  if (hash !== cred.passwordHash) return null
   return cred
 }
 

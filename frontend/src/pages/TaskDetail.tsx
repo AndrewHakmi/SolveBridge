@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { AlertTriangle, CheckCircle2, Gavel, UserPlus } from 'lucide-react'
+import { AlertTriangle, CheckCircle2, Gavel, GraduationCap, ShieldCheck, UserPlus } from 'lucide-react'
 
 import {
   applyToTask,
@@ -10,8 +10,12 @@ import {
   listUsers,
   listDisputes,
   listTaskApplications,
+  listStudentVerifications,
+  listOrganizations,
   openDispute,
   type DisputeOut,
+  type OrganizationOut,
+  type StudentVerificationOut,
   type TaskApplicationOut,
   type TaskAssignmentOut,
   type TaskOut,
@@ -25,6 +29,8 @@ import { Input } from '@/components/ui/Input'
 import { Textarea } from '@/components/ui/Textarea'
 import { useAuthStore } from '@/stores/authStore'
 import { getErrorMessage } from '@/utils/errors'
+import { getMentors, addMentor, type MentorEntry } from '@/utils/mentorRegistry'
+import { getAllCachedUsers } from '@/utils/userCache'
 
 function toneForStatus(status: string) {
   if (status === 'open') return 'accent'
@@ -45,17 +51,24 @@ export default function TaskDetail() {
   const [loading, setLoading] = useState(true)
   const [err, setErr] = useState<string | null>(null)
 
+  // verification data for applicants (client view)
+  const [applicantVerifications, setApplicantVerifications] = useState<Record<string, StudentVerificationOut[]>>({})
+  const [uniIndex, setUniIndex] = useState<Record<string, string>>({}) // org_id → name
+
   const [applyMessage, setApplyMessage] = useState('')
   const [applyBudget, setApplyBudget] = useState('')
   const [busyApply, setBusyApply] = useState(false)
 
   const [mentorId, setMentorId] = useState('')
   const [busyAssign, setBusyAssign] = useState(false)
+  const [mentors, setMentors] = useState<MentorEntry[]>(() => getMentors())
+  const [showAddMentor, setShowAddMentor] = useState(false)
+  const [newMentorUserId, setNewMentorUserId] = useState('')
 
   const [disputeReason, setDisputeReason] = useState('')
   const [busyDispute, setBusyDispute] = useState(false)
 
-  const canApply = user?.role === 'student'
+  const canApply = user?.role === 'student' || user?.role === 'executor'
   const canManage = user?.role === 'client' || user?.role === 'admin'
 
   const taskId = id || ''
@@ -115,6 +128,22 @@ export default function TaskDetail() {
         idx[u.id] = { name: u.display_name || u.email, email: u.email }
       }
       setUserIndex(idx)
+
+      // Load verification data for client view
+      if (user?.role === 'client' || user?.role === 'admin') {
+        const [unis, ...versByApplicant] = await Promise.all([
+          listOrganizations({ type: 'university' }).catch(() => [] as OrganizationOut[]),
+          ...ap.map((appl) =>
+            listStudentVerifications(appl.applicant_id).catch(() => [] as StudentVerificationOut[]),
+          ),
+        ])
+        const uIdx: Record<string, string> = {}
+        for (const u of unis as OrganizationOut[]) uIdx[u.id] = u.name
+        setUniIndex(uIdx)
+        const vIdx: Record<string, StudentVerificationOut[]> = {}
+        ap.forEach((appl, i) => { vIdx[appl.applicant_id] = versByApplicant[i] as StudentVerificationOut[] })
+        setApplicantVerifications(vIdx)
+      }
     } catch (e: unknown) {
       setErr(getErrorMessage(e, 'Не удалось загрузить задачу'))
     } finally {
@@ -241,29 +270,62 @@ export default function TaskDetail() {
                       <div className="text-sm text-[#9FB0D0]">Пока нет откликов</div>
                     ) : (
                       <div className="space-y-2">
-                        {apps.slice(0, 8).map((a) => (
-                          <div
-                            key={a.id}
-                            className="rounded-xl bg-[#0F1830] p-3 ring-1 ring-[#1E2A44]"
-                          >
-                            <div className="flex items-center justify-between gap-2">
-                              <div className="text-sm font-medium truncate">
-                                {displayUser(a.applicant_id)}
+                        {apps.slice(0, 8).map((a) => {
+                          const vers = applicantVerifications[a.applicant_id] ?? []
+                          const approvedVers = vers.filter((v) => v.status === 'approved')
+                          const pendingVers = vers.filter((v) => v.status === 'pending')
+                          return (
+                            <div
+                              key={a.id}
+                              className="rounded-xl bg-[#0F1830] p-3 ring-1 ring-[#1E2A44]"
+                            >
+                              <div className="flex items-center justify-between gap-2">
+                                <div className="text-sm font-medium truncate">
+                                  {displayUser(a.applicant_id)}
+                                </div>
+                                <Badge tone="accent">{a.status}</Badge>
                               </div>
-                              <Badge tone="accent">{a.status}</Badge>
-                            </div>
-                            <div className="mt-1 text-xs text-[#9FB0D0]">
-                              {a.proposed_amount_rub != null
-                                ? `${a.proposed_amount_rub.toLocaleString('ru-RU')} ₽`
-                                : 'ставка: n/a'}
-                            </div>
-                            {a.message ? (
-                              <div className="mt-2 text-sm text-[#9FB0D0] whitespace-pre-wrap">
-                                {a.message}
+                              <div className="mt-1 text-xs text-[#9FB0D0]">
+                                {a.proposed_amount_rub != null
+                                  ? `${a.proposed_amount_rub.toLocaleString('ru-RU')} ₽`
+                                  : 'ставка: n/a'}
                               </div>
-                            ) : null}
-                          </div>
-                        ))}
+
+                              {/* University affiliation */}
+                              {vers.length > 0 ? (
+                                <div className="mt-2 flex flex-wrap gap-1.5">
+                                  {approvedVers.map((v) => (
+                                    <span
+                                      key={v.id}
+                                      className="inline-flex items-center gap-1 rounded-full bg-[#3DDC97]/10 px-2 py-0.5 text-[10px] font-medium text-[#3DDC97]"
+                                    >
+                                      <ShieldCheck className="h-3 w-3" />
+                                      {uniIndex[v.university_org_id] ?? v.university_org_id.slice(0, 8)}
+                                    </span>
+                                  ))}
+                                  {pendingVers.map((v) => (
+                                    <span
+                                      key={v.id}
+                                      className="inline-flex items-center gap-1 rounded-full bg-[#6C8CFF]/10 px-2 py-0.5 text-[10px] font-medium text-[#6C8CFF]"
+                                    >
+                                      <GraduationCap className="h-3 w-3" />
+                                      {uniIndex[v.university_org_id] ?? v.university_org_id.slice(0, 8)}
+                                      <span className="opacity-70">· ожидает</span>
+                                    </span>
+                                  ))}
+                                </div>
+                              ) : (
+                                <div className="mt-1.5 text-[10px] text-[#9FB0D0]">Вуз не указан</div>
+                              )}
+
+                              {a.message ? (
+                                <div className="mt-2 text-sm text-[#9FB0D0] whitespace-pre-wrap">
+                                  {a.message}
+                                </div>
+                              ) : null}
+                            </div>
+                          )
+                        })}
                       </div>
                     )}
 
@@ -278,7 +340,7 @@ export default function TaskDetail() {
                         try {
                           await assignTask(taskId, {
                             executor_id: executor,
-                            mentor_id: mentorId.trim() || null,
+                            mentor_id: mentorId || null,
                           })
                           setMentorId('')
                           await load()
@@ -290,18 +352,93 @@ export default function TaskDetail() {
                       }}
                     >
                       <div className="text-xs text-[#9FB0D0]">Назначить исполнителя</div>
-                      <div className="mt-2 grid grid-cols-1 gap-2 md:grid-cols-3">
-                        <div className="md:col-span-2">
-                          <div className="mb-1 text-xs text-[#9FB0D0]">ID ментора (иногда обязательно)</div>
-                          <Input
+                      <div className="mt-2 space-y-2">
+                        <div>
+                          <div className="mb-1 flex items-center justify-between">
+                            <span className="text-xs text-[#9FB0D0]">Ментор (иногда обязательно)</span>
+                            <button
+                              type="button"
+                              onClick={() => setShowAddMentor((v) => !v)}
+                              className="text-[10px] text-[#6C8CFF] hover:underline"
+                            >
+                              {showAddMentor ? 'Отмена' : '+ Добавить ментора'}
+                            </button>
+                          </div>
+                          <select
+                            className="w-full rounded-lg bg-[#111A2E] px-3 py-2 text-sm ring-1 ring-[#1E2A44] outline-none"
                             value={mentorId}
                             onChange={(e) => setMentorId(e.target.value)}
-                            placeholder="Можно оставить пустым"
-                          />
+                          >
+                            <option value="">— Без ментора —</option>
+                            {mentors.map((m) => (
+                              <option key={m.userId} value={m.userId}>
+                                {m.name} ({m.email})
+                              </option>
+                            ))}
+                          </select>
+                          {mentors.length === 0 && (
+                            <div className="mt-1 text-[10px] text-[#9FB0D0]">
+                              Нет менторов — попросите вуз-партнёр назначить их в кабинете партнёра.
+                            </div>
+                          )}
                         </div>
-                        <div className="flex items-end">
+
+                        {/* Add mentor inline */}
+                        {showAddMentor && (() => {
+                          const allUsers = getAllCachedUsers()
+                          const mentorIds = new Set(mentors.map((m) => m.userId))
+                          const candidates = allUsers.filter((u) => !mentorIds.has(u.id))
+                          return (
+                            <div className="rounded-lg bg-[#0B1220] p-3 ring-1 ring-[#6C8CFF]/30 space-y-2">
+                              <div className="text-xs text-[#9FB0D0]">Выберите пользователя для назначения ментором:</div>
+                              {candidates.length === 0 ? (
+                                <div className="text-xs text-[#9FB0D0]">Нет доступных пользователей</div>
+                              ) : (
+                                <>
+                                  <select
+                                    className="w-full rounded-lg bg-[#111A2E] px-3 py-2 text-sm ring-1 ring-[#1E2A44] outline-none"
+                                    value={newMentorUserId}
+                                    onChange={(e) => setNewMentorUserId(e.target.value)}
+                                  >
+                                    <option value="">Выберите…</option>
+                                    {candidates.map((u) => (
+                                      <option key={u.id} value={u.id}>
+                                        {u.name} — {u.email}
+                                      </option>
+                                    ))}
+                                  </select>
+                                  <Button
+                                    variant="secondary"
+                                    type="button"
+                                    disabled={!newMentorUserId}
+                                    onClick={() => {
+                                      const u = candidates.find((c) => c.id === newMentorUserId)
+                                      if (!u) return
+                                      addMentor({
+                                        userId: u.id,
+                                        email: u.email,
+                                        name: u.name,
+                                        assignedBy: user?.email ?? 'client',
+                                        assignedAt: new Date().toISOString(),
+                                      })
+                                      const updated = getMentors()
+                                      setMentors(updated)
+                                      setMentorId(u.id)
+                                      setNewMentorUserId('')
+                                      setShowAddMentor(false)
+                                    }}
+                                  >
+                                    Назначить ментором
+                                  </Button>
+                                </>
+                              )}
+                            </div>
+                          )
+                        })()}
+
+                        <div className="flex justify-end">
                           <Button variant="primary" type="submit" disabled={busyAssign}>
-                            {busyAssign ? 'Назначаю…' : 'Назначить'}
+                            {busyAssign ? 'Назначаю…' : 'Назначить исполнителя'}
                           </Button>
                         </div>
                       </div>

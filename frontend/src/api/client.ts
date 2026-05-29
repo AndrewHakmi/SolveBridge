@@ -47,6 +47,37 @@ export async function apiFetch<T>(
   return (await readJsonSafe(res)) as T;
 }
 
+// ── Auth ──────────────────────────────────────────────────────────────────────
+
+export type AuthOut = {
+  id: string;
+  email: string;
+  display_name: string | null;
+  role: string;
+};
+
+export function authRegister(input: {
+  email: string;
+  password: string;
+  display_name?: string | null;
+  role?: string;
+}): Promise<AuthOut> {
+  return apiFetch<AuthOut>('/api/auth/register', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  });
+}
+
+export function authLogin(input: {
+  email: string;
+  password: string;
+}): Promise<AuthOut> {
+  return apiFetch<AuthOut>('/api/auth/login', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  });
+}
+
 // ── Health ────────────────────────────────────────────────────────────────────
 
 export type HealthResponse = { status: string };
@@ -334,6 +365,10 @@ export function createOrganization(input: {
   });
 }
 
+export function deleteOrganization(id: string): Promise<void> {
+  return apiFetch<void>(`/api/organizations/${id}`, { method: 'DELETE' });
+}
+
 // ── Tasks ─────────────────────────────────────────────────────────────────────
 
 export type TaskOut = {
@@ -464,5 +499,46 @@ export function upsertComplianceProfile(input: {
   return apiFetch<Exclude<ComplianceProfileOut, null>>('/api/compliance/profiles', {
     method: 'PUT',
     body: JSON.stringify(input),
+  });
+}
+
+// ── Verifications ─────────────────────────────────────────────────────────────
+
+export type StudentVerificationOut = {
+  id: string;
+  student_id: string;
+  university_org_id: string;
+  status: string;
+  document_ref: string | null;
+  created_at: string | null;
+  verified_at: string | null;
+};
+
+export function createStudentVerification(input: {
+  student_id: string;
+  university_org_id: string;
+  document_ref?: string | null;
+}): Promise<StudentVerificationOut> {
+  return apiFetch<StudentVerificationOut>('/api/verifications/students', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  });
+}
+
+export function listStudentVerifications(studentId: string): Promise<StudentVerificationOut[]> {
+  return apiFetch<StudentVerificationOut[]>(`/api/verifications/students/${studentId}`);
+}
+
+export function listUniversityVerifications(orgId: string): Promise<StudentVerificationOut[]> {
+  return apiFetch<StudentVerificationOut[]>(`/api/verifications/university/${orgId}`);
+}
+
+export function reviewVerification(
+  verificationId: string,
+  action: 'approve' | 'reject',
+): Promise<StudentVerificationOut> {
+  return apiFetch<StudentVerificationOut>(`/api/verifications/${verificationId}/review`, {
+    method: 'PATCH',
+    body: JSON.stringify({ action }),
   });
 }

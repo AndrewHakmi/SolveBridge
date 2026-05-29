@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { hashPassword } from '@/utils/crypto'
 import {
   Building2,
   GraduationCap,
@@ -21,7 +22,7 @@ import {
   reviewVerification,
   type StudentVerificationOut,
 } from '@/api/client'
-import { getMentors, addMentor, removeMentor, type MentorEntry } from '@/utils/mentorRegistry'
+import { getMentors, addMentorWithPassword, removeMentor, type MentorEntry } from '@/utils/mentorRegistry'
 import { getErrorMessage } from '@/utils/errors'
 import { Page, PageHeader, TwoCol } from '@/components/layout/Page'
 import { Alert } from '@/components/ui/Alert'
@@ -204,14 +205,16 @@ function MentorRegistrationPanel({ assignerEmail }: { assignerEmail: string }) {
     setBusy(true)
     try {
       const created = await createUser({ email: vEmail, display_name: vName })
-      addMentor({
-        userId: created.id,
-        email: vEmail,
-        name: vName,
-        password: mentorPassword,
-        assignedBy: assignerEmail,
-        assignedAt: new Date().toISOString(),
-      })
+      await addMentorWithPassword(
+        {
+          userId: created.id,
+          email: vEmail,
+          name: vName,
+          assignedBy: assignerEmail,
+          assignedAt: new Date().toISOString(),
+        },
+        mentorPassword,
+      )
       refreshList()
       setMentorName('')
       setMentorEmail('')
@@ -354,15 +357,16 @@ function CompanyCredForm({
 }) {
   const existing = Object.entries(getAllCompanyCreds()).find(([, v]) => v.companyId === company.cred.companyId)
   const [credEmail, setCredEmail] = useState(existing?.[0] ?? '')
-  const [credPassword, setCredPassword] = useState(existing?.[1]?.password ?? '')
+  const [credPassword, setCredPassword] = useState('')
   const [showPwd, setShowPwd] = useState(false)
   const [saved, setSaved] = useState(false)
 
-  function save() {
+  async function save() {
     if (!credEmail.trim() || !credPassword.trim()) return
     if (existing && existing[0] !== credEmail.trim()) removeCompanyCred(existing[0])
+    const passwordHash = await hashPassword(credPassword)
     setCompanyCred(credEmail.trim().toLowerCase(), {
-      password: credPassword,
+      passwordHash,
       companyId: company.cred.companyId,
       companyName: company.cred.companyName,
       addedByEmail: partnerEmail,
@@ -402,7 +406,7 @@ function CompanyCredForm({
       </div>
       {saved && <Alert tone="success">Сохранено!</Alert>}
       <div className="flex gap-2">
-        <Button variant="primary" type="button" onClick={save} className="flex-1">Сохранить доступ</Button>
+        <Button variant="primary" type="button" onClick={() => void save()} className="flex-1">Сохранить доступ</Button>
         {existing && (
           <Button variant="danger" type="button" onClick={() => { removeCompanyCred(existing[0]); onSaved(); onClose() }}>
             Отозвать
@@ -445,7 +449,7 @@ export default function PartnerCabinet() {
     try {
       const created = await createOrganization({ type: 'company', name, region: 'RT' })
       setCompanyCred(`${created.id}@company.local`, {
-        password: '',
+        passwordHash: '',
         companyId: created.id,
         companyName: created.name,
         addedByEmail: partnerEmail,

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter
 
+from app.api.routes.auth import router as auth_router
 from app.api.routes.artifacts import router as artifacts_router
 from app.api.routes.capability import router as capability_router
 from app.api.routes.compliance import router as compliance_router
@@ -22,6 +23,7 @@ from app.api.routes.verifications import router as verifications_router
 
 api_router = APIRouter()
 
+api_router.include_router(auth_router, prefix="/auth", tags=["auth"])
 api_router.include_router(users_router, prefix="/users", tags=["users"])
 api_router.include_router(teams_router, prefix="/teams", tags=["teams"])
 api_router.include_router(projects_router, prefix="/projects", tags=["projects"])

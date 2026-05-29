@@ -3,6 +3,9 @@ import { BrowserRouter as Router, Routes, Route } from 'react-router-dom'
 import { RequireAuth } from '@/components/auth/RequireAuth'
 import { AppShell } from '@/components/layout/AppShell'
 import Admin from '@/pages/Admin'
+import AdminCabinet from '@/pages/AdminCabinet'
+import PartnerCabinet from '@/pages/PartnerCabinet'
+import CompanyCabinet from '@/pages/CompanyCabinet'
 import KnowledgeDetail from '@/pages/KnowledgeDetail'
 import KnowledgeList from '@/pages/KnowledgeList'
 import KnowledgeNew from '@/pages/KnowledgeNew'
@@ -50,6 +53,9 @@ export default function App() {
           <Route path="/more" element={<More />} />
           <Route path="/partner" element={<PartnerDashboard />} />
           <Route path="/admin" element={<Admin />} />
+          <Route path="/cabinet" element={<AdminCabinet />} />
+          <Route path="/partner-cabinet" element={<PartnerCabinet />} />
+          <Route path="/company-cabinet" element={<CompanyCabinet />} />
         </Route>
         <Route path="*" element={<NotFound />} />
       </Routes>

@@ -3,7 +3,8 @@ from __future__ import annotations
 import datetime as dt
 import uuid
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Query
+from typing import Optional
 from sqlalchemy import select
 from sqlalchemy.dialects.postgresql import insert
 
@@ -20,6 +21,7 @@ from app.schemas.tasks import (
     TaskAssignmentOut,
     TaskCreate,
     TaskOut,
+    TaskStatus,
     TaskStatusUpdate,
 )
 
@@ -55,7 +57,7 @@ async def create_task(payload: TaskCreate, session: SessionDep):
 
 
 @router.get("", response_model=list[TaskOut])
-async def list_tasks(session: SessionDep, status: str | None = None):
+async def list_tasks(session: SessionDep, status: Optional[TaskStatus] = Query(default=None)):
     stmt = select(Task)
     if status:
         stmt = stmt.where(Task.status == status)

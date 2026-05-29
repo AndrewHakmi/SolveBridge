@@ -1,12 +1,13 @@
 from __future__ import annotations
 
 import uuid
+from typing import Annotated
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class ProjectCreate(BaseModel):
-    title: str
+    title: Annotated[str, Field(min_length=1, max_length=300)]
     owner_team_id: uuid.UUID | None = None
     client_id: uuid.UUID | None = None
 
@@ -22,4 +23,3 @@ class ProjectOut(BaseModel):
     peer_score: float | None
     artifact_score: float | None
     success_rate: float | None
-

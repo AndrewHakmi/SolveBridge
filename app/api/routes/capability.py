@@ -10,7 +10,7 @@ from sqlalchemy.dialects.postgresql import insert
 from app.api.deps import SessionDep
 from app.models.capability import CapabilityEdge
 from app.models.skill import Skill
-from app.schemas.capability import CapabilityOut, CapabilityUpsert
+from app.schemas.capability import CapabilityOut, CapabilityUpsert, EntityType
 
 
 router = APIRouter()
@@ -30,7 +30,7 @@ def _to_out(row: CapabilityEdge) -> CapabilityOut:
 @router.get("", response_model=list[CapabilityOut])
 async def list_capabilities(
     session: SessionDep,
-    entity_type: Optional[str] = Query(default=None),
+    entity_type: Optional[EntityType] = Query(default=None),
     entity_id: Optional[uuid.UUID] = Query(default=None),
 ):
     stmt = select(CapabilityEdge).order_by(CapabilityEdge.last_updated.desc())

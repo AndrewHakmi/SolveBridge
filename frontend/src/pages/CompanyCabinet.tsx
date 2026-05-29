@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { hashPassword } from '@/utils/crypto'
 import { Briefcase, Building2, ArrowRight, UserCheck, UserMinus, Eye, EyeOff } from 'lucide-react'
 import { Link } from 'react-router-dom'
 
@@ -12,7 +13,7 @@ import { Input } from '@/components/ui/Input'
 import { useAuthStore } from '@/stores/authStore'
 import { getErrorMessage } from '@/utils/errors'
 import { getAllCompanyCreds } from '@/utils/partnerCreds'
-import { getMentors, addMentor, removeMentor, type MentorEntry } from '@/utils/mentorRegistry'
+import { getMentors, addMentorWithPassword, removeMentor, type MentorEntry } from '@/utils/mentorRegistry'
 
 function MentorRegistrationPanel({ assignerEmail }: { assignerEmail: string }) {
   const [mentors, setMentors] = useState<MentorEntry[]>(() =>
@@ -45,14 +46,16 @@ function MentorRegistrationPanel({ assignerEmail }: { assignerEmail: string }) {
     setBusy(true)
     try {
       const created = await createUser({ email: vEmail, display_name: vName })
-      addMentor({
-        userId: created.id,
-        email: vEmail,
-        name: vName,
-        password: mentorPassword,
-        assignedBy: assignerEmail,
-        assignedAt: new Date().toISOString(),
-      })
+      await addMentorWithPassword(
+        {
+          userId: created.id,
+          email: vEmail,
+          name: vName,
+          assignedBy: assignerEmail,
+          assignedAt: new Date().toISOString(),
+        },
+        mentorPassword,
+      )
       refreshList()
       setMentorName('')
       setMentorEmail('')

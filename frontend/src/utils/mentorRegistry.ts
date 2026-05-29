@@ -1,12 +1,14 @@
+import { hashPassword } from './crypto'
+
 const KEY = 'sb:mentors'
 
 export type MentorEntry = {
   userId: string
   email: string
   name: string
-  password?: string
-  assignedBy: string  // email of who assigned
-  assignedAt: string  // ISO string
+  passwordHash?: string
+  assignedBy: string
+  assignedAt: string
 }
 
 function readAll(): Record<string, MentorEntry> {
@@ -45,10 +47,20 @@ export function removeMentor(userId: string): void {
   }
 }
 
-export function checkMentorCred(email: string, password: string): MentorEntry | null {
+export async function checkMentorCred(email: string, password: string): Promise<MentorEntry | null> {
   const entry = Object.values(readAll()).find(
     (m) => m.email.toLowerCase() === email.toLowerCase(),
   )
-  if (!entry || !entry.password || entry.password !== password) return null
+  if (!entry || !entry.passwordHash) return null
+  const hash = await hashPassword(password)
+  if (hash !== entry.passwordHash) return null
   return entry
+}
+
+export async function addMentorWithPassword(
+  entry: Omit<MentorEntry, 'passwordHash'>,
+  plainPassword: string,
+): Promise<void> {
+  const passwordHash = await hashPassword(plainPassword)
+  addMentor({ ...entry, passwordHash })
 }

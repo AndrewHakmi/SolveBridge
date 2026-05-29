@@ -1,19 +1,25 @@
 import { create } from 'zustand'
 
-export type UserRole = 'client' | 'student' | 'mentor' | 'admin'
+export type UserRole = 'client' | 'student' | 'executor' | 'mentor' | 'admin' | 'partner' | 'company'
 
 export type AuthUser = {
   id: string
   email: string
   name: string
   role: UserRole
+  universityOrgIds?: string[]  // for students: verified org IDs
+  universityText?: string       // for executors: free-text university name
 }
 
 export function labelForRole(role: UserRole) {
-  if (role === 'client') return 'Клиент'
+  if (role === 'client') return 'Заказчик'
   if (role === 'student') return 'Студент'
+  if (role === 'executor') return 'Исполнитель'
   if (role === 'mentor') return 'Ментор'
-  return 'Партнёр'
+  if (role === 'admin') return 'Администратор'
+  if (role === 'partner') return 'Партнёр'
+  if (role === 'company') return 'Компания'
+  return role
 }
 
 type AuthState = {

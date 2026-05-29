@@ -17,7 +17,7 @@ export function Card({ className, ...props }: Props) {
 
 export function CardHeader({ className, ...props }: Props) {
   return (
-    <div className={cn('px-4 pt-4', className)} {...props} />
+    <div className={cn('px-4 pt-4 pb-3', className)} {...props} />
   )
 }
 

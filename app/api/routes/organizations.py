@@ -1,11 +1,14 @@
 from __future__ import annotations
 
-from fastapi import APIRouter
+import uuid
+
+from fastapi import APIRouter, HTTPException, Query
+from typing import Optional
 from sqlalchemy import select
 
 from app.api.deps import SessionDep
 from app.models.organization import Organization
-from app.schemas.organizations import OrganizationCreate, OrganizationOut
+from app.schemas.organizations import OrganizationCreate, OrganizationOut, OrgType
 
 
 router = APIRouter()
@@ -27,7 +30,7 @@ async def create_org(payload: OrganizationCreate, session: SessionDep):
 
 
 @router.get("", response_model=list[OrganizationOut])
-async def list_orgs(session: SessionDep, type: str | None = None):
+async def list_orgs(session: SessionDep, type: Optional[OrgType] = Query(default=None)):
     stmt = select(Organization)
     if type:
         stmt = stmt.where(Organization.type == type)
@@ -36,3 +39,12 @@ async def list_orgs(session: SessionDep, type: str | None = None):
         OrganizationOut(id=o.id, type=o.type, name=o.name, region=o.region, metadata=o.metadata_json)
         for o in rows
     ]
+
+
+@router.delete("/{org_id}", status_code=204)
+async def delete_org(org_id: uuid.UUID, session: SessionDep):
+    org = (await session.execute(select(Organization).where(Organization.id == org_id))).scalar_one_or_none()
+    if not org:
+        raise HTTPException(status_code=404, detail="Organization not found")
+    await session.delete(org)
+    await session.commit()

@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import uuid
+from datetime import datetime
+from typing import Literal
 
 from pydantic import BaseModel
 
@@ -17,4 +19,10 @@ class StudentVerificationOut(BaseModel):
     university_org_id: uuid.UUID
     status: str
     document_ref: str | None
+    created_at: datetime | None = None
+    verified_at: datetime | None = None
+
+
+class StudentVerificationReview(BaseModel):
+    action: Literal["approve", "reject"]
 

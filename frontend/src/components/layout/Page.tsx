@@ -16,14 +16,16 @@ export function PageHeader({
   right?: ReactNode
 }) {
   return (
-    <div className="flex flex-wrap items-start justify-between gap-3">
-      <div>
+    <div className="relative md:-ml-[276px] md:w-[calc(100%+276px)]">
+      <div className="text-center">
         <h1 className="text-2xl font-semibold tracking-tight">{title}</h1>
         {subtitle ? (
-          <p className="mt-1 max-w-[72ch] text-sm text-[#9FB0D0]">{subtitle}</p>
+          <p className="mx-auto mt-1 max-w-[72ch] text-sm text-[#9FB0D0]">{subtitle}</p>
         ) : null}
       </div>
-      {right ? <div className="flex items-center gap-2">{right}</div> : null}
+      {right ? (
+        <div className="absolute right-0 top-0 flex items-center gap-2">{right}</div>
+      ) : null}
     </div>
   )
 }
@@ -39,8 +41,8 @@ export function TwoCol({
 }) {
   return (
     <div className={cn('grid grid-cols-12 gap-4', className)}>
-      <div className="col-span-12 lg:col-span-8">{main}</div>
-      {aside ? <div className="col-span-12 lg:col-span-4">{aside}</div> : null}
+      <div className="col-span-12 lg:col-span-9">{main}</div>
+      {aside ? <div className="col-span-12 lg:col-span-3">{aside}</div> : null}
     </div>
   )
 }
